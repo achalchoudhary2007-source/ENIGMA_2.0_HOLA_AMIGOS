@@ -1,302 +1,770 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nexus ML | Interactive AI Sandbox</title>
+    <title>VisualML - Master ML Algorithms Visually</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
-                    colors: { primary: '#4f46e5', secondary: '#0f172a' }
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        navy: '#1e3a8a',
+                        accent: '#3b82f6',
+                        success: '#10b981',
+                        darkbg: '#0b1120',
+                        darkcard: '#111827'
+                    },
+                    boxShadow: {
+                        'glow': '0 0 40px -10px rgba(59, 130, 246, 0.5)',
+                        'glow-success': '0 0 40px -10px rgba(16, 185, 129, 0.5)',
+                    }
                 }
             }
         }
     </script>
+
     <style>
-        .view-section { display: none; animation: fadeIn 0.3s ease-in-out; }
-        .view-section.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Custom UI / UX Enhancements */
+        body { background-color: #0b1120; color: #f8fafc; overflow-x: hidden; }
+        .glass {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .text-gradient {
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image: linear-gradient(to right, #3b82f6, #8b5cf6, #ec4899);
+        }
+        /* Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+            background: #3b82f6; cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(59,130,246,0.8);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #374151; border-radius: 2px;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0b1120; }
+        ::-webkit-scrollbar-thumb { background: #1e3a8a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="antialiased selection:bg-accent selection:text-white flex flex-col min-h-screen">
 
-    <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center cursor-pointer" onclick="navigateTo('home')">
-                    <i class="fa-solid fa-brain text-primary text-2xl mr-2"></i>
-                    <span class="font-bold text-xl tracking-tight text-secondary">Nexus ML</span>
+    <div id="auth-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+        <div class="glass p-8 rounded-2xl w-full max-w-md border border-white/10 shadow-glow transform scale-95 transition-transform duration-300" id="auth-box">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-white">Join VisualML</h3>
+                <button onclick="closeAuth()" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            <p class="text-gray-400 mb-6 text-sm">Create a free account to unlock interactive algorithms and track your progress.</p>
+            <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-1">Email</label>
+                    <input type="email" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent" placeholder="hacker@hackathon.com">
                 </div>
-                <div class="flex items-center space-x-6">
-                    <a href="#" onclick="navigateTo('home')" class="text-slate-500 hover:text-primary font-medium transition">Dashboard</a>
-                    <a href="#" onclick="navigateTo('simulator')" class="text-slate-500 hover:text-primary font-medium transition">Simulator</a>
-                    <div class="border-l border-slate-300 h-6 mx-2"></div>
-                    <a href="#" onclick="navigateTo('login')" class="text-slate-500 hover:text-primary font-medium transition">Log in</a>
-                    <button onclick="navigateTo('register')" class="bg-primary hover:bg-indigo-700 text-white px-4 py-2 rounded-md font-medium transition shadow-md">
-                        Sign up free
-                    </button>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-300 mb-1">Password</label>
+                    <input type="password" required class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-accent hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg transition shadow-glow mt-4">
+                    Start Learning
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <nav class="fixed w-full z-50 glass border-b border-white/5 transition-all">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="showView('landing')">
+                    <svg class="w-8 h-8 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <span class="text-2xl font-extrabold tracking-tight text-white">Visual<span class="text-accent">ML</span></span>
+                </div>
+                <div id="nav-landing" class="hidden md:flex space-x-8 items-center">
+                    <a href="#problem" class="text-sm font-semibold text-gray-300 hover:text-white transition">Problem</a>
+                    <a href="#solution" class="text-sm font-semibold text-gray-300 hover:text-white transition">Algorithms</a>
+                    <a href="#features" class="text-sm font-semibold text-gray-300 hover:text-white transition">Features</a>
+                    <button onclick="requireAuth('dashboard')" class="text-sm font-bold bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition">Login</button>
+                </div>
+                <div id="nav-app" class="hidden md:flex space-x-4 items-center">
+                    <button onclick="switchAlgo('linreg')" class="algo-tab px-3 py-1 rounded text-sm font-semibold transition hover:bg-white/10">LinReg</button>
+                    <button onclick="switchAlgo('knn')" class="algo-tab px-3 py-1 rounded text-sm font-semibold transition hover:bg-white/10">KNN</button>
+                    <button onclick="switchAlgo('dt')" class="algo-tab px-3 py-1 rounded text-sm font-semibold transition hover:bg-white/10">Decision Tree</button>
+                    <button onclick="switchAlgo('nn')" class="algo-tab px-3 py-1 rounded text-sm font-semibold transition hover:bg-white/10">Neural Net</button>
+                    <div class="w-px h-6 bg-gray-700 mx-2"></div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-gradient-to-r from-accent to-purple-500 flex items-center justify-center text-xs font-bold">H</div>
+                        <span class="text-xs text-success font-bold">Logged In</span>
+                    </div>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="flex-grow flex flex-col">
-
-        <section id="view-home" class="view-section active flex-grow">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-                <h1 class="text-5xl font-extrabold text-secondary tracking-tight mb-4">
-                    Master Machine Learning <br><span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-cyan-500">Visually.</span>
+    <div id="view-landing" class="flex-grow pt-16">
+        
+        <section class="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+            <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-navy rounded-full mix-blend-screen filter blur-[100px] opacity-60"></div>
+            <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-900 rounded-full mix-blend-screen filter blur-[100px] opacity-60"></div>
+            
+            <div class="relative z-10 text-center px-4 max-w-5xl mx-auto gs-reveal">
+                <div class="inline-block mb-4 px-4 py-1.5 rounded-full border border-accent/30 bg-accent/10 text-accent text-sm font-semibold tracking-wide backdrop-blur-sm">
+                    🚀 The Ultimate Hackathon EdTech Platform
+                </div>
+                <h1 class="text-6xl md:text-8xl font-extrabold mb-6 tracking-tight drop-shadow-2xl">
+                    <span class="text-white">Visual</span><span class="text-gradient">ML</span>
                 </h1>
-                <p class="text-xl text-slate-500 mb-10 max-w-2xl mx-auto">
-                    Stop guessing how algorithms work. Watch neural networks learn, manipulate gradient descent in real-time, and combat overfitting with our interactive sandbox.
+                <h2 class="text-2xl md:text-4xl font-bold text-gray-200 mb-6 drop-shadow-lg">
+                    Master ML Algorithms Visually <br/><span class="text-gray-400 text-xl md:text-3xl font-medium">– No Math PhD Required!</span>
+                </h2>
+                <p class="text-lg text-gray-400 max-w-2xl mx-auto mb-10 h-16" id="hero-subtitle">
+                    Interactive Animations + Videos for Linear Regression, KNN, Decision Trees, Neural Networks.
                 </p>
-                <button onclick="navigateTo('simulator')" class="bg-primary hover:bg-indigo-700 text-white px-8 py-4 rounded-lg font-bold text-lg transition shadow-xl transform hover:-translate-y-1">
-                    Launch Simulator <i class="fa-solid fa-rocket ml-2"></i>
-                </button>
-
-                <div class="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                        <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-chart-line"></i></div>
-                        <h3 class="text-xl font-bold mb-2">Gradient Descent</h3>
-                        <p class="text-slate-500 text-sm">Visualize how algorithms minimize loss mathematically step-by-step.</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                        <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-balance-scale"></i></div>
-                        <h3 class="text-xl font-bold mb-2">Overfitting Control</h3>
-                        <p class="text-slate-500 text-sm">Tweak polynomial degrees and watch the variance vs. bias tradeoff unfold.</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                        <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center text-xl mb-4"><i class="fa-solid fa-network-wired"></i></div>
-                        <h3 class="text-xl font-bold mb-2">Neural Architectures</h3>
-                        <p class="text-slate-500 text-sm">Understand perceptrons and multi-layer networks through interactive training data.</p>
-                    </div>
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button onclick="requireAuth('dashboard')" class="px-8 py-4 bg-accent hover:bg-blue-500 text-white rounded-xl font-bold text-lg shadow-glow transition transform hover:-translate-y-1">
+                        🚀 Start Learning ML Visually
+                    </button>
+                    <a href="#how-it-works" class="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl font-bold text-lg transition backdrop-blur-sm">
+                        See How it Works
+                    </a>
                 </div>
             </div>
         </section>
 
-        <section id="view-login" class="view-section flex-grow flex items-center justify-center py-12">
-            <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 w-full max-w-md">
-                <div class="text-center mb-8">
-                    <i class="fa-solid fa-brain text-primary text-4xl mb-2"></i>
-                    <h2 class="text-2xl font-bold text-secondary">Welcome back</h2>
-                    <p class="text-slate-500 text-sm">Enter your credentials to access your saved models.</p>
+        <section id="problem" class="py-24 bg-darkcard relative border-y border-white/5">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16 gs-reveal">
+                    <h2 class="text-4xl font-bold text-white mb-4">Why ML Feels Impossible</h2>
+                    <div class="w-24 h-1 bg-accent mx-auto rounded-full"></div>
                 </div>
-                <form onsubmit="event.preventDefault(); navigateTo('simulator');">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                        <input type="email" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" required>
+                <div class="grid md:grid-cols-2 gap-12 items-center">
+                    <div class="space-y-6 gs-reveal">
+                        <h3 class="text-2xl font-semibold text-gray-200">The Traditional Learning Trap</h3>
+                        <ul class="space-y-4">
+                            <li class="flex items-start gap-4">
+                                <div class="mt-1 p-2 bg-red-500/10 rounded-lg text-red-400">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-white">Wall of Abstract Math</h4>
+                                    <p class="text-gray-400 text-sm">Courses start with Greek letters and calculus before showing what the algorithm actually *does*.</p>
+                                </div>
+                            </li>
+                            <li class="flex items-start gap-4">
+                                <div class="mt-1 p-2 bg-red-500/10 rounded-lg text-red-400">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path></svg>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-white">Extremely Steep Curve</h4>
+                                    <p class="text-gray-400 text-sm">Beginners give up setting up Python environments before writing a single line of model code.</p>
+                                </div>
+                            </li>
+                        </ul>
                     </div>
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                        <input type="password" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" required>
-                    </div>
-                    <button type="submit" class="w-full bg-secondary hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-lg transition shadow-md">
-                        Sign In
-                    </button>
-                </form>
-                <p class="text-center text-sm text-slate-500 mt-6">
-                    Don't have an account? <a href="#" onclick="navigateTo('register')" class="text-primary font-bold hover:underline">Sign up</a>
-                </p>
-            </div>
-        </section>
-
-        <section id="view-register" class="view-section flex-grow flex items-center justify-center py-12">
-            <div class="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 w-full max-w-md">
-                <div class="text-center mb-8">
-                    <h2 class="text-2xl font-bold text-secondary">Create an Account</h2>
-                    <p class="text-slate-500 text-sm">Join Nexus ML and save your experiment progress.</p>
-                </div>
-                <form onsubmit="event.preventDefault(); navigateTo('simulator');">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                        <input type="text" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" required>
-                    </div>
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                        <input type="email" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" required>
-                    </div>
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                        <input type="password" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none" required>
-                    </div>
-                    <button type="submit" class="w-full bg-primary hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md">
-                        Create Account
-                    </button>
-                </form>
-            </div>
-        </section>
-
-        <section id="view-simulator" class="view-section flex-grow bg-slate-100 p-6 h-[calc(100vh-4rem)]">
-            <div class="flex h-full max-w-[1600px] mx-auto gap-6">
-                <div class="w-1/4 bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-y-auto">
-                    <div class="mb-6">
-                        <h2 class="text-xl font-bold text-secondary"><i class="fa-solid fa-sliders text-primary mr-2"></i> Parameters</h2>
-                        <p class="text-xs text-slate-400 mt-1">Configure your model architecture</p>
-                    </div>
-
-                    <div class="mb-6">
-                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Algorithm Type</label>
-                        <select id="algoSelect" class="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded-lg focus:ring-primary outline-none">
-                            <option value="regression">Linear Regression (Gradient Descent)</option>
-                            <option value="classification">Logistic Regression (Perceptron)</option>
-                        </select>
-                    </div>
-
-                    <div class="space-y-5">
-                        <div>
-                            <label class="flex justify-between text-sm font-medium text-slate-700">Learning Rate (α) <span id="lrVal" class="text-primary font-mono bg-indigo-50 px-1 rounded">0.1</span></label>
-                            <input type="range" id="lr" min="0.01" max="0.5" step="0.01" value="0.1" class="w-full mt-2 accent-primary" />
-                        </div>
-                        <div>
-                            <label class="flex justify-between text-sm font-medium text-slate-700">Epochs <span id="epochsVal" class="text-primary font-mono bg-indigo-50 px-1 rounded">150</span></label>
-                            <input type="range" id="epochs" min="10" max="500" step="10" value="150" class="w-full mt-2 accent-primary" />
-                        </div>
-                        <div id="degreeContainer">
-                            <label class="flex justify-between text-sm font-medium text-slate-700">Polynomial Degree <span id="degreeVal" class="text-primary font-mono bg-indigo-50 px-1 rounded">1</span></label>
-                            <input type="range" id="degree" min="1" max="9" step="1" value="1" class="w-full mt-2 accent-primary" />
-                            <p class="text-[10px] text-red-500 mt-1 font-medium"><i class="fa-solid fa-triangle-exclamation"></i> High degrees cause Overfitting!</p>
-                        </div>
-                    </div>
-
-                    <button id="trainBtn" class="w-full mt-8 bg-secondary hover:bg-slate-800 text-white font-bold py-3 rounded-lg shadow-md transition flex justify-center items-center gap-2">
-                        <i class="fa-solid fa-play"></i> Run Simulation
-                    </button>
-                </div>
-
-                <div class="w-3/4 flex flex-col gap-6">
-                    <div class="flex-1 bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative">
-                        <div class="flex justify-between items-center mb-2">
-                            <h2 class="font-bold text-secondary">Decision Boundary Visualization</h2>
-                            <div id="statusBadge" class="bg-indigo-50 text-primary border border-indigo-100 px-3 py-1 rounded-full text-sm font-mono flex gap-3">
-                                <span>Epoch: 0</span> <span>Loss: 0.0000</span>
+                    <div class="glass p-6 rounded-2xl border border-white/10 gs-reveal">
+                        <h4 class="text-center text-gray-300 font-bold mb-4 text-sm uppercase tracking-wider">Theory vs Practical Gap</h4>
+                        <div class="flex justify-between items-end h-48 px-4 pb-4 border-b border-l border-gray-700 relative">
+                            <div class="w-1/3 bg-red-500/20 border border-red-500/50 rounded-t-lg h-[80%] flex items-center justify-center text-red-300 font-bold">Math First</div>
+                            <div class="w-1/3 bg-success/20 border border-success/50 rounded-t-lg h-[100%] flex items-center justify-center text-success font-bold shadow-glow-success">Visual First</div>
+                            <div class="absolute -bottom-6 left-0 w-full flex justify-between text-xs text-gray-500 font-bold px-8">
+                                <span>High Dropout</span>
+                                <span>High Retention</span>
                             </div>
                         </div>
-                        <div class="h-[calc(100%-2rem)] w-full relative"><canvas id="scatterChart"></canvas></div>
-                    </div>
-                    
-                    <div class="h-1/3 bg-white p-4 rounded-xl shadow-sm border border-slate-200 relative">
-                        <h2 class="font-bold text-secondary mb-2">Gradient Descent Cost Function (Loss)</h2>
-                        <div class="h-[calc(100%-2rem)] w-full relative"><canvas id="lossChart"></canvas></div>
                     </div>
                 </div>
             </div>
         </section>
 
-    </main>
+        <section id="solution" class="py-24 relative">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16 gs-reveal">
+                    <h2 class="text-4xl font-bold text-white mb-4">Our Visual Revolution</h2>
+                    <p class="text-gray-400 max-w-2xl mx-auto">Interactive playgrounds right in your browser. Choose an algorithm below to unlock the dashboard.</p>
+                </div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div onclick="requireAuth('linreg')" class="glass p-6 rounded-2xl cursor-pointer group hover:-translate-y-2 transition duration-300 hover:shadow-glow border border-white/10 gs-reveal">
+                        <div class="w-12 h-12 bg-blue-500/20 text-blue-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">Linear Regression</h3>
+                        <p class="text-sm text-gray-400">Fit lines to data with live MSE sliders.</p>
+                    </div>
+                    <div onclick="requireAuth('knn')" class="glass p-6 rounded-2xl cursor-pointer group hover:-translate-y-2 transition duration-300 hover:shadow-glow border border-white/10 gs-reveal" style="transition-delay: 100ms;">
+                        <div class="w-12 h-12 bg-green-500/20 text-green-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">KNN</h3>
+                        <p class="text-sm text-gray-400">Classify points with animated neighbors.</p>
+                    </div>
+                    <div onclick="requireAuth('dt')" class="glass p-6 rounded-2xl cursor-pointer group hover:-translate-y-2 transition duration-300 hover:shadow-glow border border-white/10 gs-reveal" style="transition-delay: 200ms;">
+                        <div class="w-12 h-12 bg-purple-500/20 text-purple-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">Decision Tree</h3>
+                        <p class="text-sm text-gray-400">Build trees step-by-step, see entropy.</p>
+                    </div>
+                    <div onclick="requireAuth('nn')" class="glass p-6 rounded-2xl cursor-pointer group hover:-translate-y-2 transition duration-300 hover:shadow-glow border border-white/10 gs-reveal" style="transition-delay: 300ms;">
+                        <div class="w-12 h-12 bg-rose-500/20 text-rose-400 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">Neural Network</h3>
+                        <p class="text-sm text-gray-400">Watch neurons fire in real-time.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="features" class="py-24 bg-darkcard border-t border-white/5">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid lg:grid-cols-2 gap-16">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white mb-8">Platform Features</h2>
+                        <div class="grid grid-cols-2 gap-6">
+                            <div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full bg-accent"></div><span class="text-gray-300">Interactive Sliders</span></div>
+                            <div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full bg-accent"></div><span class="text-gray-300">Auto-Play Videos</span></div>
+                            <div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full bg-accent"></div><span class="text-gray-300">Real-Time Viz</span></div>
+                            <div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full bg-accent"></div><span class="text-gray-300">Mobile-Responsive</span></div>
+                            <div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full bg-accent"></div><span class="text-gray-300">Progress Tracking</span></div>
+                            <div class="flex items-center gap-3"><div class="w-2 h-2 rounded-full bg-accent"></div><span class="text-gray-300">Free Forever</span></div>
+                        </div>
+                    </div>
+                    <div id="how-it-works">
+                        <h2 class="text-3xl font-bold text-white mb-8">How It Works</h2>
+                        <div class="space-y-6 relative before:absolute before:inset-0 before:ml-4 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-700 before:to-transparent">
+                            <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                <div class="flex items-center justify-center w-8 h-8 rounded-full border border-white bg-darkcard text-white font-bold z-10">1</div>
+                                <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2rem)] p-4 glass rounded-xl ml-4 md:ml-0 md:mr-8 text-sm">
+                                    <h4 class="font-bold text-accent mb-1">Pick Algo</h4>
+                                    <p class="text-gray-400">Select an algorithm to study.</p>
+                                </div>
+                            </div>
+                            <div class="relative flex items-center justify-between md:justify-normal group is-active">
+                                <div class="flex items-center justify-center w-8 h-8 rounded-full border border-white bg-darkcard text-white font-bold z-10 md:order-1 md:translate-x-[-15px]">2</div>
+                                <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2rem)] p-4 glass rounded-xl ml-4 md:ml-8 text-sm">
+                                    <h4 class="font-bold text-accent mb-1">Tweak Params</h4>
+                                    <p class="text-gray-400">Use sliders to change math inputs.</p>
+                                </div>
+                            </div>
+                            <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                <div class="flex items-center justify-center w-8 h-8 rounded-full border border-white bg-darkcard text-white font-bold z-10">3</div>
+                                <div class="w-[calc(100%-3rem)] md:w-[calc(50%-2rem)] p-4 glass rounded-xl ml-4 md:ml-0 md:mr-8 text-sm">
+                                    <h4 class="font-bold text-accent mb-1">Watch Magic</h4>
+                                    <p class="text-gray-400">See the canvas update in real-time!</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="py-24 text-center">
+            <h2 class="text-4xl font-bold text-white mb-8">Ready to skip the math PhD?</h2>
+            <button onclick="requireAuth('dashboard')" class="px-10 py-5 bg-accent hover:bg-blue-500 text-white rounded-xl font-bold text-xl shadow-glow transition transform hover:scale-105">
+                🚀 Start Learning ML Visually
+            </button>
+        </section>
+    </div>
+
+    <div id="view-app" class="hidden flex-grow pt-16 flex flex-col h-screen overflow-hidden bg-darkbg">
+        
+        <div class="flex-grow flex overflow-hidden">
+            
+            <div id="page-linreg" class="algo-page w-full h-full flex flex-col lg:flex-row p-4 lg:p-8 gap-8 overflow-y-auto">
+                <div class="lg:w-1/3 flex flex-col gap-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white mb-2">Linear Regression</h2>
+                        <p class="text-gray-400 text-sm mb-2">Fit a line through data points to minimize the error. The goal is to find the best `y = mx + b` parameters.</p>
+                        <p class="text-gray-400 text-sm">Adjust the sliders to manually fit the line and watch the Mean Squared Error (MSE) react instantly.</p>
+                    </div>
+                    <div class="glass p-2 rounded-xl overflow-hidden border border-white/10 shadow-glow">
+                        <div class="aspect-video w-full rounded-lg overflow-hidden bg-black">
+                            <iframe class="w-full h-full pointer-events-none" src="https://www.youtube.com/embed/CtsRRUddV2s?autoplay=1&mute=1&loop=1&playlist=CtsRRUddV2s&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:w-2/3 flex flex-col glass p-6 rounded-2xl border border-white/10 h-full">
+                    <div class="flex-grow relative w-full mb-6 min-h-[300px]">
+                        <canvas id="canvas-linreg"></canvas>
+                    </div>
+                    <div class="bg-gray-900/50 p-6 rounded-xl border border-white/5 space-y-6">
+                        <div class="flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700">
+                            <span class="font-bold text-gray-300 uppercase tracking-widest text-sm">Model Loss</span>
+                            <span class="text-2xl font-mono font-bold text-red-400 shadow-glow">MSE: <span id="val-mse">15.60</span></span>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between mb-1"><label class="text-sm font-bold text-gray-300">Slope (m)</label><span id="val-slope" class="text-accent font-mono">-1.8</span></div>
+                                <input type="range" id="slider-slope" min="-5" max="5" step="0.1" value="-1.8">
+                            </div>
+                            <div>
+                                <div class="flex justify-between mb-1"><label class="text-sm font-bold text-gray-300">Intercept (b)</label><span id="val-int" class="text-accent font-mono">0.8</span></div>
+                                <input type="range" id="slider-int" min="-10" max="10" step="0.1" value="0.8">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-knn" class="hidden algo-page w-full h-full flex flex-col lg:flex-row p-4 lg:p-8 gap-8 overflow-y-auto">
+                <div class="lg:w-1/3 flex flex-col gap-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white mb-2">K-Nearest Neighbors</h2>
+                        <p class="text-gray-400 text-sm mb-2">Classify a data point based on how its neighbors are classified. "Tell me who your friends are, and I'll tell you who you are."</p>
+                        <p class="text-gray-400 text-sm"><b>Click on the grid</b> to place a new point. The algorithm finds the 'K' closest points and takes a majority vote.</p>
+                    </div>
+                    <div class="glass p-2 rounded-xl overflow-hidden border border-white/10 shadow-glow">
+                        <div class="aspect-video w-full rounded-lg overflow-hidden bg-black">
+                            <iframe class="w-full h-full pointer-events-none" src="https://www.youtube.com/embed/gs9E7E0qOIc?autoplay=1&mute=1&loop=1&playlist=gs9E7E0qOIc&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:w-2/3 flex flex-col glass p-6 rounded-2xl border border-white/10 h-full">
+                    <div class="bg-gray-900/50 p-4 rounded-xl border border-white/5 mb-4 flex items-center justify-between">
+                        <div class="w-2/3">
+                            <div class="flex justify-between mb-1"><label class="text-sm font-bold text-gray-300">Neighbors (K)</label><span id="val-k" class="text-success font-mono">3</span></div>
+                            <input type="range" id="slider-k" min="1" max="9" step="2" value="3" class="accent-success">
+                        </div>
+                        <button onclick="resetKNN()" class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-600 transition text-sm">Reset Grid</button>
+                    </div>
+                    <div class="flex-grow relative w-full min-h-[300px] cursor-crosshair">
+                        <canvas id="canvas-knn"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-dt" class="hidden algo-page w-full h-full flex flex-col lg:flex-row p-4 lg:p-8 gap-8 overflow-y-auto">
+                <div class="lg:w-1/3 flex flex-col gap-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white mb-2">Decision Tree</h2>
+                        <p class="text-gray-400 text-sm mb-2">Splits data into branches to make decisions. It looks for the split that minimizes <b>Entropy</b> (chaos/disorder).</p>
+                        <p class="text-gray-400 text-sm">Slide the threshold to see how changing the split condition recalculates the purity of the resulting groups.</p>
+                    </div>
+                    <div class="glass p-2 rounded-xl overflow-hidden border border-white/10 shadow-glow">
+                        <div class="aspect-video w-full rounded-lg overflow-hidden bg-black">
+                            <iframe class="w-full h-full pointer-events-none" src="https://www.youtube.com/embed/JcI5E2Ng6r4?autoplay=1&mute=1&loop=1&playlist=JcI5E2Ng6r4&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:w-2/3 flex flex-col glass p-6 rounded-2xl border border-white/10 h-full items-center justify-center">
+                    <div class="w-full bg-gray-900/50 p-6 rounded-xl border border-white/5 mb-8">
+                        <div class="flex justify-between mb-1"><label class="text-sm font-bold text-gray-300">Feature X Threshold</label><span id="val-split" class="text-purple-400 font-mono">50</span></div>
+                        <input type="range" id="slider-dt" min="10" max="90" step="1" value="50">
+                    </div>
+                    <svg width="100%" height="300" viewBox="0 0 400 300" class="max-w-md mx-auto drop-shadow-lg overflow-visible">
+                        <line x1="200" y1="60" x2="100" y2="180" stroke="#4b5563" stroke-width="4" id="dt-line-l" class="transition-all duration-300"/>
+                        <line x1="200" y1="60" x2="300" y2="180" stroke="#4b5563" stroke-width="4" id="dt-line-r" class="transition-all duration-300"/>
+                        <rect x="120" y="10" width="160" height="50" rx="8" fill="#1e3a8a" stroke="#3b82f6" stroke-width="2"/>
+                        <text x="200" y="40" fill="white" font-weight="bold" font-family="Inter" text-anchor="middle" id="dt-root-txt">X > 50?</text>
+                        <rect x="20" y="180" width="160" height="70" rx="8" fill="#0f172a" stroke="#4b5563" stroke-width="2" id="dt-box-l" class="transition-all duration-300"/>
+                        <text x="100" y="210" fill="#cbd5e1" font-weight="bold" font-family="Inter" font-size="14" text-anchor="middle">Branch A</text>
+                        <text x="100" y="235" fill="#f87171" font-weight="bold" font-family="Inter" font-size="14" text-anchor="middle" id="dt-ent-l">Entropy: 0.00</text>
+                        <rect x="220" y="180" width="160" height="70" rx="8" fill="#0f172a" stroke="#4b5563" stroke-width="2" id="dt-box-r" class="transition-all duration-300"/>
+                        <text x="300" y="210" fill="#cbd5e1" font-weight="bold" font-family="Inter" font-size="14" text-anchor="middle">Branch B</text>
+                        <text x="300" y="235" fill="#f87171" font-weight="bold" font-family="Inter" font-size="14" text-anchor="middle" id="dt-ent-r">Entropy: 0.00</text>
+                    </svg>
+                </div>
+            </div>
+
+            <div id="page-nn" class="hidden algo-page w-full h-full flex flex-col lg:flex-row p-4 lg:p-8 gap-8 overflow-y-auto">
+                <div class="lg:w-1/3 flex flex-col gap-6">
+                    <div>
+                        <h2 class="text-3xl font-bold text-white mb-2">Neural Network</h2>
+                        <p class="text-gray-400 text-sm mb-2">Pass inputs through hidden layers to predict an output. Powered by a real <b>TensorFlow.js</b> sequential model running live in your browser.</p>
+                        <p class="text-gray-400 text-sm">Change inputs and watch the forward pass propagate through weights and activations.</p>
+                    </div>
+                    <div class="glass p-2 rounded-xl overflow-hidden border border-white/10 shadow-glow">
+                        <div class="aspect-video w-full rounded-lg overflow-hidden bg-black">
+                            <iframe class="w-full h-full pointer-events-none" src="https://www.youtube.com/embed/bfmFfD2RIcg?autoplay=1&mute=1&loop=1&playlist=bfmFfD2RIcg&controls=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:w-2/3 flex flex-col glass p-6 rounded-2xl border border-white/10 h-full">
+                    <div class="grid grid-cols-2 gap-6 bg-gray-900/50 p-6 rounded-xl border border-white/5 mb-6">
+                        <div>
+                            <div class="flex justify-between mb-1"><label class="text-sm font-bold text-gray-300">Input X1</label><span id="val-in1" class="text-rose-400 font-mono">0.50</span></div>
+                            <input type="range" id="slider-in1" min="0" max="1" step="0.01" value="0.5" class="accent-rose-500">
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1"><label class="text-sm font-bold text-gray-300">Input X2</label><span id="val-in2" class="text-rose-400 font-mono">0.50</span></div>
+                            <input type="range" id="slider-in2" min="0" max="1" step="0.01" value="0.5" class="accent-rose-500">
+                        </div>
+                    </div>
+                    <div class="flex-grow relative bg-gray-900 rounded-xl overflow-hidden border border-gray-700 flex items-center justify-center min-h-[300px]">
+                        <svg class="absolute inset-0 w-full h-full" id="svg-nn"></svg>
+                        <div class="absolute inset-0 flex justify-between items-center px-[15%] pointer-events-none">
+                            <div class="flex flex-col gap-16 z-10">
+                                <div class="w-10 h-10 rounded-full bg-gray-800 border-2 border-rose-500 flex items-center justify-center text-xs font-bold shadow-[0_0_15px_rgba(244,63,94,0.5)]">X1</div>
+                                <div class="w-10 h-10 rounded-full bg-gray-800 border-2 border-rose-500 flex items-center justify-center text-xs font-bold shadow-[0_0_15px_rgba(244,63,94,0.5)]">X2</div>
+                            </div>
+                            <div class="flex flex-col gap-8 z-10">
+                                <div class="w-10 h-10 rounded-full bg-gray-800 border-2 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)] nn-node-hid"></div>
+                                <div class="w-10 h-10 rounded-full bg-gray-800 border-2 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)] nn-node-hid"></div>
+                                <div class="w-10 h-10 rounded-full bg-gray-800 border-2 border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)] nn-node-hid"></div>
+                            </div>
+                            <div class="flex flex-col gap-8 z-10">
+                                <div id="nn-out-node" class="w-16 h-16 rounded-full bg-gray-800 border-4 border-success flex items-center justify-center font-mono font-bold text-lg shadow-[0_0_30px_rgba(16,185,129,0.8)] transition-all duration-200">
+                                    0.00
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <footer id="footer" class="border-t border-white/5 glass py-8 z-40 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-gray-400 font-medium mb-2">Built by <span class="text-white">Priyanshu Borkar</span> | Hackathon Name 2026</p>
+            <div class="flex justify-center gap-4 text-sm text-gray-500">
+                <a href="#" class="hover:text-accent transition">GitHub</a>
+                <span>&bull;</span>
+                <a href="#" class="hover:text-accent transition">MIT License</a>
+            </div>
+        </div>
+    </footer>
 
     <script>
-        // --- Navigation Logic ---
-        function navigateTo(viewId) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.getElementById('view-' + viewId).classList.add('active');
-            
-            // Only initialize charts if we land on the simulator
-            if(viewId === 'simulator' && !chartsInitialized) {
-                initCharts();
-                fetchData();
-                chartsInitialized = true;
-            }
-        }
+        /* ================= Core Navigation & Auth State ================= */
+        Chart.defaults.color = '#9ca3af';
+        Chart.defaults.font.family = 'Inter';
 
-        // --- ML Simulator Logic ---
-        let chartsInitialized = false;
-        let datasetType = 'regression', dataX = [], dataY = [];
-        let scatterChart, lossChart, animationInterval;
-        
-        const algoSelect = document.getElementById('algoSelect');
-        const lrInput = document.getElementById('lr'), epochsInput = document.getElementById('epochs');
-        const degreeInput = document.getElementById('degree'), trainBtn = document.getElementById('trainBtn');
-        const statusBadge = document.getElementById('statusBadge');
+        let currentUser = localStorage.getItem('vml_user');
 
-        // Update UI labels
-        lrInput.oninput = e => document.getElementById('lrVal').innerText = e.target.value;
-        epochsInput.oninput = e => document.getElementById('epochsVal').innerText = e.target.value;
-        degreeInput.oninput = e => document.getElementById('degreeVal').innerText = e.target.value;
-
-        // Change Problem Type
-        algoSelect.onchange = (e) => {
-            datasetType = e.target.value;
-            document.getElementById('degreeContainer').style.display = datasetType === 'regression' ? 'block' : 'none';
-            fetchData();
-        };
-
-        function initCharts() {
-            scatterChart = new Chart(document.getElementById('scatterChart').getContext('2d'), {
-                type: 'scatter', data: { datasets: [] },
-                options: { responsive: true, maintainAspectRatio: false, animation: false, scales: { x: { min: -1.2, max: 1.2 }, y: { min: -1.2, max: 2.5 } }, plugins: { legend: { position: 'bottom' } } }
-            });
-            lossChart = new Chart(document.getElementById('lossChart').getContext('2d'), {
-                type: 'line', data: { labels: [], datasets: [{ label: 'Loss Value', data: [], borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', fill: true, tension: 0.1, pointRadius: 0 }] },
-                options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } } }
-            });
-        }
-
-        async function fetchData() {
-            try {
-                const res = await axios.get(`http://localhost:8000/generate-data?type=${datasetType}`);
-                dataX = res.data.X; dataY = res.data.y;
-                updateCharts(null);
-            } catch (err) { alert("Backend connection failed. Ensure python main.py is running on port 8000."); }
-        }
-
-        function updateCharts(frame, historyData = []) {
-            let points = datasetType === 'regression' ? dataX.map((x, i) => ({ x, y: dataY[i] })) : dataX.map(x => ({ x: x[0], y: x[1] }));
-            let colors = datasetType === 'regression' ? '#4f46e5' : dataY.map(y => y === 1 ? '#10b981' : '#f43f5e');
-
-            scatterChart.data.datasets = [
-                { label: 'Training Data', data: points, backgroundColor: colors },
-                { label: 'Model Prediction', data: frame ? frame.boundary : [], type: 'line', borderColor: '#f59e0b', borderWidth: 3, pointRadius: 0, fill: false }
-            ];
-            scatterChart.update();
-
-            if (frame) {
-                statusBadge.innerHTML = `<span>Epoch: ${frame.epoch}</span> <span>Loss: ${frame.loss.toFixed(4)}</span>`;
-                lossChart.data.labels = historyData.map(h => h.epoch);
-                lossChart.data.datasets[0].data = historyData.map(h => h.loss);
-                lossChart.update();
+        function showView(view) {
+            if(view === 'landing') {
+                document.getElementById('view-landing').classList.remove('hidden');
+                document.getElementById('view-app').classList.add('hidden');
+                document.getElementById('nav-landing').classList.remove('hidden');
+                document.getElementById('nav-app').classList.add('hidden');
+                document.getElementById('footer').classList.remove('hidden');
+                window.scrollTo(0,0);
             } else {
-                statusBadge.innerHTML = `<span>Epoch: 0</span> <span>Loss: 0.0000</span>`;
-                lossChart.data.labels = []; lossChart.data.datasets[0].data = [];
-                lossChart.update();
+                document.getElementById('view-landing').classList.add('hidden');
+                document.getElementById('view-app').classList.remove('hidden');
+                document.getElementById('nav-landing').classList.add('hidden');
+                document.getElementById('nav-app').classList.remove('hidden');
+                document.getElementById('footer').classList.add('hidden'); // App is full screen
             }
         }
 
-        trainBtn.onclick = async () => {
-            clearInterval(animationInterval);
-            trainBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Training...`; 
-            trainBtn.disabled = true;
+        function requireAuth(targetAlgo = 'dashboard') {
+            if(!currentUser) {
+                document.getElementById('auth-modal').classList.remove('hidden');
+                // Small delay to allow display:block before opacity transition
+                setTimeout(() => {
+                    document.getElementById('auth-modal').classList.remove('opacity-0');
+                    document.getElementById('auth-box').classList.remove('scale-95');
+                }, 10);
+                // Store intent
+                window.authIntent = targetAlgo;
+            } else {
+                proceedToApp(targetAlgo);
+            }
+        }
 
-            const payload = {
-                learning_rate: parseFloat(lrInput.value),
-                epochs: parseInt(epochsInput.value),
-                degree: datasetType === 'regression' ? parseInt(degreeInput.value) : 1,
-                X: dataX, y: dataY
-            };
+        function closeAuth() {
+            document.getElementById('auth-modal').classList.add('opacity-0');
+            document.getElementById('auth-box').classList.add('scale-95');
+            setTimeout(() => document.getElementById('auth-modal').classList.add('hidden'), 300);
+        }
 
-            try {
-                const endpoint = datasetType === 'regression' ? 'train-linear' : 'train-logistic';
-                const res = await axios.post(`http://localhost:8000/${endpoint}`, payload);
-                const historyData = res.data.history;
-                
-                let step = 0;
-                animationInterval = setInterval(() => {
-                    if (step >= historyData.length) {
-                        clearInterval(animationInterval);
-                        trainBtn.innerHTML = `<i class="fa-solid fa-play"></i> Run Simulation`; 
-                        trainBtn.disabled = false;
-                        return;
+        function handleLogin(e) {
+            e.preventDefault();
+            localStorage.setItem('vml_user', 'true');
+            currentUser = true;
+            closeAuth();
+            proceedToApp(window.authIntent || 'linreg');
+        }
+
+        function proceedToApp(algo) {
+            showView('app');
+            switchAlgo(algo === 'dashboard' ? 'linreg' : algo);
+        }
+
+        function switchAlgo(algoId) {
+            document.querySelectorAll('.algo-page').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`page-${algoId}`).classList.remove('hidden');
+            
+            // Highlight Tab
+            document.querySelectorAll('.algo-tab').forEach(el => {
+                el.classList.remove('bg-white/20', 'text-accent');
+                el.classList.add('text-gray-300');
+            });
+            event?.currentTarget?.classList?.add('bg-white/20', 'text-accent');
+
+            // Re-render specific canvas to avoid sizing bugs
+            if(algoId === 'linreg') updateLinReg();
+            if(algoId === 'knn') updateKNN();
+            if(algoId === 'dt') updateDT();
+            if(algoId === 'nn') drawNNLines();
+        }
+
+        // GSAP Animations Landing Page
+        gsap.from(".gs-reveal", {
+            y: 40, opacity: 0, duration: 0.8, stagger: 0.2, ease: "power3.out",
+            scrollTrigger: { trigger: ".gs-reveal", start: "top 80%" } // Simple assumption
+        });
+
+
+        /* ================= 1. Linear Regression ================= */
+        let lrChart = null;
+        // Generate pseudo-random clustered data for realistic regression
+        const lrData = [];
+        for(let i=0; i<30; i++) {
+            let x = (Math.random() * 20) - 10;
+            // Target equation approximately y = -1.8x + 0.8
+            let y = -1.8 * x + 0.8 + (Math.random() * 10 - 5); 
+            lrData.push({x, y});
+        }
+
+        function updateLinReg() {
+            const m = parseFloat(document.getElementById('slider-slope').value);
+            const b = parseFloat(document.getElementById('slider-int').value);
+            
+            document.getElementById('val-slope').innerText = m.toFixed(1);
+            document.getElementById('val-int').innerText = b.toFixed(1);
+
+            let mse = 0;
+            lrData.forEach(p => {
+                const pred = m * p.x + b;
+                mse += Math.pow(p.y - pred, 2);
+            });
+            mse = mse / lrData.length;
+            // Matches screenshot MSE format visually
+            document.getElementById('val-mse').innerText = mse.toFixed(2);
+
+            const lineData = [{x: -12, y: m * -12 + b}, {x: 12, y: m * 12 + b}];
+
+            if(!lrChart) {
+                const ctx = document.getElementById('canvas-linreg').getContext('2d');
+                lrChart = new Chart(ctx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [
+                            { label: 'Dataset', data: lrData, backgroundColor: '#3b82f6', pointRadius: 5 },
+                            { label: 'Fit Line', data: lineData, type: 'line', borderColor: '#f87171', borderWidth: 3, pointRadius: 0 }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        animation: false,
+                        scales: {
+                            x: { min: -12, max: 12, grid: { color: '#374151' } },
+                            y: { min: -20, max: 20, grid: { color: '#374151' } }
+                        },
+                        plugins: { legend: { display: false } }
                     }
-                    updateCharts(historyData[step], historyData.slice(0, step + 1));
-                    step++;
-                }, 50);
-            } catch (err) { console.error(err); trainBtn.innerHTML = `Error!`; trainBtn.disabled = false; }
+                });
+            } else {
+                lrChart.data.datasets[1].data = lineData;
+                lrChart.update();
+            }
+        }
+        document.getElementById('slider-slope').addEventListener('input', updateLinReg);
+        document.getElementById('slider-int').addEventListener('input', updateLinReg);
+
+
+        /* ================= 2. KNN Algorithm ================= */
+        let knnChart = null;
+        let knnData = [];
+        
+        function initKNN() {
+            knnData = [];
+            for(let i=0; i<15; i++) knnData.push({x: Math.random()*8, y: Math.random()*8, class: 0}); // Blue
+            for(let i=0; i<15; i++) knnData.push({x: Math.random()*8+6, y: Math.random()*8+6, class: 1}); // Green
+            updateKNN();
+        }
+
+        function resetKNN() { initKNN(); }
+
+        function handleKNNClick(e) {
+            if(!knnChart) return;
+            const canvasPosition = Chart.helpers.getRelativePosition(e, knnChart);
+            const x = knnChart.scales.x.getValueForPixel(canvasPosition.x);
+            const y = knnChart.scales.y.getValueForPixel(canvasPosition.y);
+            
+            const k = parseInt(document.getElementById('slider-k').value);
+            
+            let dists = knnData.map(p => ({ p, d: Math.hypot(p.x - x, p.y - y) }));
+            dists.sort((a,b) => a.d - b.d);
+            
+            let votes = {0:0, 1:0};
+            for(let i=0; i<k; i++) votes[dists[i].p.class]++;
+            
+            knnData.push({x, y, class: votes[0] > votes[1] ? 0 : 1, isNew: true});
+            updateKNN();
+        }
+
+        function updateKNN() {
+            document.getElementById('val-k').innerText = document.getElementById('slider-k').value;
+            
+            const d0 = knnData.filter(p => p.class === 0 && !p.isNew);
+            const d1 = knnData.filter(p => p.class === 1 && !p.isNew);
+            const n0 = knnData.filter(p => p.class === 0 && p.isNew);
+            const n1 = knnData.filter(p => p.class === 1 && p.isNew);
+
+            if(!knnChart) {
+                const ctx = document.getElementById('canvas-knn').getContext('2d');
+                knnChart = new Chart(ctx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [
+                            { data: d0, backgroundColor: '#3b82f6', pointRadius: 6 },
+                            { data: d1, backgroundColor: '#10b981', pointRadius: 6 },
+                            { data: n0, backgroundColor: '#3b82f6', borderColor: 'white', borderWidth: 2, pointRadius: 10, pointStyle: 'star' },
+                            { data: n1, backgroundColor: '#10b981', borderColor: 'white', borderWidth: 2, pointRadius: 10, pointStyle: 'star' }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false, animation: false,
+                        onClick: handleKNNClick,
+                        scales: {
+                            x: { min: -2, max: 16, grid: { color: '#374151' } },
+                            y: { min: -2, max: 16, grid: { color: '#374151' } }
+                        },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            } else {
+                knnChart.data.datasets[0].data = d0; knnChart.data.datasets[1].data = d1;
+                knnChart.data.datasets[2].data = n0; knnChart.data.datasets[3].data = n1;
+                knnChart.update();
+            }
+        }
+        document.getElementById('slider-k').addEventListener('input', updateKNN);
+        initKNN();
+
+
+        /* ================= 3. Decision Tree ================= */
+        function updateDT() {
+            const val = parseInt(document.getElementById('slider-dt').value);
+            document.getElementById('val-split').innerText = val;
+            document.getElementById('dt-root-txt').innerText = `X > ${val}?`;
+
+            // Entropy calc simulation based on uniform distribution 0-100
+            const p1 = val / 100;
+            const p2 = 1 - p1;
+            const calcEnt = (p) => p <= 0 || p >= 1 ? 0 : -(p*Math.log2(p) + (1-p)*Math.log2(1-p));
+            
+            document.getElementById('dt-ent-l').innerText = `Entropy: ${calcEnt(p1).toFixed(2)}`;
+            document.getElementById('dt-ent-r').innerText = `Entropy: ${calcEnt(p2).toFixed(2)}`;
+
+            // Visual highlight
+            const lBox = document.getElementById('dt-box-l');
+            const rBox = document.getElementById('dt-box-r');
+            const lLine = document.getElementById('dt-line-l');
+            const rLine = document.getElementById('dt-line-r');
+
+            if(val > 50) {
+                lBox.setAttribute('stroke', '#3b82f6'); rBox.setAttribute('stroke', '#4b5563');
+                lLine.setAttribute('stroke', '#3b82f6'); rLine.setAttribute('stroke', '#4b5563');
+            } else if (val < 50) {
+                rBox.setAttribute('stroke', '#10b981'); lBox.setAttribute('stroke', '#4b5563');
+                rLine.setAttribute('stroke', '#10b981'); lLine.setAttribute('stroke', '#4b5563');
+            } else {
+                lBox.setAttribute('stroke', '#4b5563'); rBox.setAttribute('stroke', '#4b5563');
+                lLine.setAttribute('stroke', '#4b5563'); rLine.setAttribute('stroke', '#4b5563');
+            }
+        }
+        document.getElementById('slider-dt').addEventListener('input', updateDT);
+
+
+        /* ================= 4. Neural Network (TF.js) ================= */
+        let nnModel;
+        
+        async function setupNN() {
+            // Real TF.js model configuration
+            nnModel = tf.sequential();
+            nnModel.add(tf.layers.dense({units: 3, inputShape: [2], activation: 'relu'}));
+            nnModel.add(tf.layers.dense({units: 1, activation: 'sigmoid'}));
+            
+            // Set fixed weights for predictable deterministic visualization
+            const w1 = tf.tensor2d([[1, -1, 0.5], [-0.5, 1, -1]]);
+            const b1 = tf.tensor1d([0, 0, 0]);
+            const w2 = tf.tensor2d([[1], [1], [-1]]);
+            const b2 = tf.tensor1d([0]);
+            
+            nnModel.layers[0].setWeights([w1, b1]);
+            nnModel.layers[1].setWeights([w2, b2]);
+            
+            drawNNLines();
+            runNNPrediction();
+        }
+
+        function drawNNLines() {
+            const svg = document.getElementById('svg-nn');
+            const lines = [
+                {x1:'25%',y1:'35%',x2:'50%',y2:'25%'}, {x1:'25%',y1:'35%',x2:'50%',y2:'50%'}, {x1:'25%',y1:'35%',x2:'50%',y2:'75%'},
+                {x1:'25%',y1:'65%',x2:'50%',y2:'25%'}, {x1:'25%',y1:'65%',x2:'50%',y2:'50%'}, {x1:'25%',y1:'65%',x2:'50%',y2:'75%'},
+                {x1:'50%',y1:'25%',x2:'75%',y2:'50%'}, {x1:'50%',y1:'50%',x2:'75%',y2:'50%'}, {x1:'50%',y1:'75%',x2:'75%',y2:'50%'},
+            ];
+            svg.innerHTML = lines.map((l,i) => `<line x1="${l.x1}" y1="${l.y1}" x2="${l.x2}" y2="${l.y2}" stroke="#374151" stroke-width="2" id="nn-line-${i}" class="transition-all duration-300"></line>`).join('');
+        }
+
+        function runNNPrediction() {
+            if(!nnModel) return;
+            const in1 = parseFloat(document.getElementById('slider-in1').value);
+            const in2 = parseFloat(document.getElementById('slider-in2').value);
+            
+            document.getElementById('val-in1').innerText = in1.toFixed(2);
+            document.getElementById('val-in2').innerText = in2.toFixed(2);
+
+            tf.tidy(() => {
+                const pred = nnModel.predict(tf.tensor2d([[in1, in2]])).dataSync()[0];
+                const outNode = document.getElementById('nn-out-node');
+                outNode.innerText = pred.toFixed(2);
+                
+                // Color formatting based on activation
+                outNode.style.boxShadow = `0 0 ${20 + pred*20}px rgba(16,185,129,${0.3 + pred*0.7})`;
+                
+                // Simulate line firing animations randomly proportional to signal
+                const strength = (in1 + in2) / 2;
+                for(let i=0; i<9; i++) {
+                    const line = document.getElementById(`nn-line-${i}`);
+                    if(!line) continue;
+                    if(Math.random() < strength) {
+                        line.setAttribute('stroke', '#3b82f6');
+                        line.setAttribute('stroke-width', '4');
+                    } else {
+                        line.setAttribute('stroke', '#374151');
+                        line.setAttribute('stroke-width', '2');
+                    }
+                }
+            });
+        }
+        document.getElementById('slider-in1').addEventListener('input', runNNPrediction);
+        document.getElementById('slider-in2').addEventListener('input', runNNPrediction);
+
+        /* ================= Boot ================= */
+        window.onload = () => {
+            updateLinReg();
+            updateDT();
+            setupNN();
         };
+
     </script>
 </body>
 </html>
